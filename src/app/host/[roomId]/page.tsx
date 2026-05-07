@@ -13,7 +13,6 @@ import { QRCodeComponent } from '@/components/qr-code';
 import { BattleArena } from '@/components/battle-arena';
 import { evaluateDebateOpinions } from '@/ai/flows/evaluate-debate-opinions';
 import { generateAttackDialogue } from '@/ai/flows/generate-attack-dialogue';
-import { firebaseConfig } from '@/firebase/config';
 
 export default function HostRoomPage() {
   const params = useParams();
@@ -92,8 +91,9 @@ export default function HostRoomPage() {
 
   if (!room) return <div className="p-12 text-center text-primary font-headline animate-pulse">로딩 중...</div>;
 
-  // 요구사항: QR 링크를 /join/[roomId] 로 변경
-  const joinUrl = `https://${firebaseConfig.projectId}.web.app/join/${roomId}`;
+  // 요구사항: QR 링크를 특정 Vercel 배포 주소로 고정
+  const BASE_URL = "https://debate-battle-r2hm.vercel.app";
+  const joinUrl = `${BASE_URL}/join/${roomId}`;
 
   return (
     <div className="min-h-screen p-4 md:p-8 space-y-8 bg-[#16190E]">
