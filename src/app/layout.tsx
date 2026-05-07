@@ -4,8 +4,8 @@ import { Toaster } from "@/components/ui/toaster";
 import { FirebaseClientProvider } from '@/firebase/client-provider';
 
 export const metadata: Metadata = {
-  title: '스틱토론 배틀 - 실시간 교실 토론 게임',
-  description: 'AI와 함께하는 실시간 스틱맨 토론 배틀',
+  title: '찬반대전 - 실시간 교실 토론 게임',
+  description: 'AI와 함께하는 실시간 찬반 토론 배틀',
 };
 
 export default function RootLayout({

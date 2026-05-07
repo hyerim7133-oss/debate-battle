@@ -4,26 +4,26 @@
 
 @layer base {
   :root {
-    --background: 70 20% 7%;
-    --foreground: 70 40% 98%;
-    --card: 70 20% 10%;
-    --card-foreground: 70 40% 98%;
-    --popover: 70 20% 10%;
-    --popover-foreground: 70 40% 98%;
-    --primary: 73 100% 69%;
-    --primary-foreground: 70 20% 7%;
-    --secondary: 70 20% 15%;
-    --secondary-foreground: 70 40% 98%;
-    --muted: 70 20% 15%;
-    --muted-foreground: 70 20% 65%;
-    --accent: 30 100% 50%;
+    --background: 240 10% 4%;
+    --foreground: 0 0% 98%;
+    --card: 240 10% 7%;
+    --card-foreground: 0 0% 98%;
+    --popover: 240 10% 7%;
+    --popover-foreground: 0 0% 98%;
+    --primary: 217 91% 60%; /* 찬성 Blue */
+    --primary-foreground: 0 0% 100%;
+    --secondary: 240 10% 12%;
+    --secondary-foreground: 0 0% 98%;
+    --muted: 240 10% 12%;
+    --muted-foreground: 240 5% 65%;
+    --accent: 0 84% 60%; /* 반대 Red */
     --accent-foreground: 0 0% 100%;
-    --destructive: 0 84% 60%;
+    --destructive: 0 62% 30%;
     --destructive-foreground: 0 0% 98%;
-    --border: 70 20% 20%;
-    --input: 70 20% 20%;
-    --ring: 73 100% 69%;
-    --radius: 1rem;
+    --border: 240 10% 15%;
+    --input: 240 10% 15%;
+    --ring: 217 91% 60%;
+    --radius: 0.75rem;
   }
 }
 
@@ -35,33 +35,90 @@
     @apply bg-background text-foreground font-body overflow-x-hidden;
   }
   h1, h2, h3, h4, h5, h6 {
-    @apply font-headline;
+    @apply font-headline uppercase tracking-tight;
   }
 }
 
-.battle-arena {
-  background: radial-gradient(circle at center, #1e2211 0%, #16190e 100%);
-  position: relative;
-  overflow: hidden;
+/* 배틀 이펙트 애니메이션 */
+@keyframes flame {
+  0%, 100% { transform: scale(1) translateY(0); filter: blur(8px) brightness(1); opacity: 0.8; }
+  50% { transform: scale(1.1) translateY(-10px); filter: blur(12px) brightness(1.5); opacity: 1; }
 }
 
-.stickman-container {
-  transition: all 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+@keyframes vibrate {
+  0% { transform: translate(0,0) rotate(0); }
+  25% { transform: translate(2px, -2px) rotate(0.5deg); }
+  50% { transform: translate(-2px, 2px) rotate(-0.5deg); }
+  75% { transform: translate(2px, 2px) rotate(0.5deg); }
+  100% { transform: translate(0,0) rotate(0); }
+}
+
+@keyframes screen-shake {
+  0%, 100% { transform: translate(0, 0); }
+  10%, 30%, 50%, 70%, 90% { transform: translate(-5px, -5px); }
+  20%, 40%, 60%, 80% { transform: translate(5px, 5px); }
+}
+
+@keyframes impact-flash {
+  0% { background-color: transparent; }
+  50% { background-color: rgba(255, 255, 255, 0.2); }
+  100% { background-color: transparent; }
+}
+
+.animate-flame {
+  animation: flame 3s infinite ease-in-out;
+}
+
+.animate-vibrate {
+  animation: vibrate 0.2s infinite linear;
+}
+
+.animate-screen-shake {
+  animation: screen-shake 0.4s cubic-bezier(.36,.07,.19,.97) both;
+}
+
+.animate-impact-flash {
+  animation: impact-flash 0.3s ease-out;
+}
+
+.battle-arena {
+  background: 
+    linear-gradient(rgba(0, 0, 0, 0.8), rgba(0, 0, 0, 0.8)),
+    repeating-linear-gradient(0deg, transparent, transparent 1px, rgba(255, 255, 255, 0.03) 1px, rgba(255, 255, 255, 0.03) 2px),
+    radial-gradient(circle at center, #1a1a2e 0%, #0a0a0f 100%);
+  position: relative;
+  overflow: hidden;
+  box-shadow: inset 0 0 100px rgba(0,0,0,0.9);
 }
 
 .damage-pop {
-  animation: damage-float 1s ease-out forwards;
+  animation: damage-float 0.8s ease-out forwards;
+  text-shadow: 0 0 20px rgba(255,255,255,1);
 }
 
 @keyframes damage-float {
-  0% { transform: translateY(0) scale(1); opacity: 1; }
-  100% { transform: translateY(-50px) scale(1.5); opacity: 0; }
+  0% { transform: translateY(0) scale(1) rotate(0deg); opacity: 1; }
+  20% { transform: translateY(-30px) scale(2) rotate(-10deg); }
+  100% { transform: translateY(-100px) scale(1.5) rotate(10deg); opacity: 0; }
 }
 
 .game-button {
-  @apply transition-transform active:scale-95 hover:brightness-110 shadow-[0_4px_0_0_rgba(0,0,0,0.3)];
+  @apply transition-all active:scale-95 hover:brightness-125 shadow-[0_4px_0_0_rgba(0,0,0,0.5)] border-b-4 active:border-b-0 active:translate-y-[4px];
 }
 
 .game-card {
-  @apply border-2 border-primary/20 bg-card/80 backdrop-blur-sm shadow-xl;
+  @apply border-2 border-white/5 bg-card/60 backdrop-blur-md shadow-2xl;
+}
+
+.hp-bar-glow {
+  box-shadow: 0 0 15px currentColor;
+}
+
+@keyframes aura-ping {
+  0% { transform: scale(1); opacity: 0.5; }
+  100% { transform: scale(1.5); opacity: 0; }
+}
+
+.aura-effect {
+  animation: aura-ping 2s infinite;
 }

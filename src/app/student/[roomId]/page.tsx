@@ -3,36 +3,52 @@
 
 import { useState, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
-import { useFirestore, useUser, useMemoFirebase, useDoc } from '@/firebase';
-import { collection, addDoc, serverTimestamp, doc } from 'firebase/firestore';
+import { useFirestore, useUser, useMemoFirebase, useDoc, useFirebase } from '@/firebase';
+import { collection, addDoc, serverTimestamp, doc, Firestore } from 'firebase/firestore';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Send, Zap, Swords, Info } from 'lucide-react';
+import { Send, Zap, Swords, Info, AlertCircle } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 
 export default function StudentBattlePage() {
   const params = useParams();
   const roomId = params?.roomId as string;
+  
   const router = useRouter();
-  const db = useFirestore();
   const { user } = useUser();
+  const { toast } = useToast();
+
   const [opinion, setOpinion] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [nickname, setNickname] = useState('');
   const [side, setSide] = useState<'pro' | 'con' | null>(null);
-  const { toast } = useToast();
+  const [mounted, setMounted] = useState(false);
+
+  // Firebase 서비스 안전하게 가져오기
+  let db: Firestore | null = null;
+  let firebaseError: string | null = null;
+  
+  try {
+    const firebase = useFirebase();
+    db = firebase.firestore;
+  } catch (e: any) {
+    firebaseError = e.message;
+  }
 
   const roomRef = useMemoFirebase(() => (db && roomId ? doc(db, 'rooms', roomId) : null), [db, roomId]);
-  const { data: room, isLoading: isRoomLoading } = useDoc(roomRef);
+  const { data: room, isLoading: isRoomLoading, error: roomError } = useDoc(roomRef);
 
   useEffect(() => {
+    setMounted(true);
     if (!roomId) return;
+    if (typeof window === 'undefined') return;
+
     const localNick = localStorage.getItem(`debate_${roomId}_nickname`);
     const localSide = localStorage.getItem(`debate_${roomId}_side`) as 'pro' | 'con';
     
-    // 설정 정보가 없으면 설정 페이지로 리다이렉트
     if (!localNick || !localSide) {
       router.push(`/join/${roomId}`);
       return;
@@ -55,89 +71,132 @@ export default function StudentBattlePage() {
         text: opinion.trim(),
         used: false,
         submittedAt: serverTimestamp(),
-        round: room?.currentRound || 1
+        round: room?.currentRound || 1,
+        roomId: roomId,
+        hostId: room?.hostId || ''
       });
       setOpinion('');
       toast({
-        title: "의견 제출 완료!",
-        description: "AI 배틀이 곧 시작됩니다. 당신의 논리가 데미지를 줄 거예요!",
+        title: "ATTACK SENT!",
+        description: "당신의 논리가 상대방에게 데미지를 줄 것입니다!",
       });
-    } catch (error) {
+    } catch (error: any) {
       console.error("Submit error:", error);
       toast({
         variant: "destructive",
-        title: "제출 실패",
-        description: "의견을 제출하는 중 오류가 발생했습니다.",
+        title: "ATTACK FAILED",
+        description: error.message || "의견을 제출하는 중 오류가 발생했습니다.",
       });
     } finally {
       setIsSubmitting(false);
     }
   };
 
-  if (isRoomLoading || !room) {
-    return <div className="p-12 text-center text-primary font-headline animate-pulse">로딩 중...</div>;
+  if (!mounted) return null;
+
+  if (isRoomLoading || !db) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-background">
+        <div className="p-12 text-center text-primary font-headline animate-pulse text-3xl italic">LOADING ARENA...</div>
+      </div>
+    );
   }
 
-  return (
-    <div className="min-h-screen p-4 flex flex-col items-center bg-[#16190E]">
-      <div className={`w-full max-w-lg p-3 rounded-b-2xl mb-6 flex justify-between items-center ${side === 'pro' ? 'bg-primary text-black' : 'bg-accent text-white'}`}>
-        <div className="flex items-center gap-2">
-          <Zap className="w-5 h-5" />
-          <span className="font-headline font-bold text-sm uppercase">{side} SIDE</span>
+  if (firebaseError || roomError) {
+    return (
+      <div className="min-h-screen flex items-center justify-center p-4 bg-background">
+        <Alert variant="destructive" className="max-w-md bg-destructive/10 border-destructive">
+          <AlertCircle className="h-5 w-5" />
+          <AlertTitle>BATTLE CONNECTION FAILED</AlertTitle>
+          <AlertDescription>
+            {roomError?.message || firebaseError || "아레나에 연결할 수 없습니다."}
+          </AlertDescription>
+        </Alert>
+      </div>
+    );
+  }
+
+  if (!room) {
+    return (
+      <div className="min-h-screen flex items-center justify-center p-4 bg-background">
+        <div className="text-center space-y-6">
+          <AlertCircle className="w-20 h-20 text-destructive mx-auto animate-bounce" />
+          <h2 className="text-4xl font-headline font-black text-white uppercase italic tracking-tighter">Room Expired</h2>
+          <Button variant="outline" onClick={() => router.push('/')} className="mt-4 border-primary text-primary hover:bg-primary/10 h-14 px-8 font-headline">
+            메인으로 돌아가기
+          </Button>
         </div>
-        <div className="font-headline font-bold truncate max-w-[150px]">{nickname}</div>
+      </div>
+    );
+  }
+
+  const sideColorClass = side === 'pro' ? 'bg-primary shadow-[0_0_20px_rgba(59,130,246,0.5)]' : 'bg-accent shadow-[0_0_20px_rgba(239,68,68,0.5)]';
+
+  return (
+    <div className="min-h-screen p-4 flex flex-col items-center bg-background">
+      {/* Player Identity Bar */}
+      <div className={`w-full max-w-lg p-4 rounded-b-xl mb-6 flex justify-between items-center ${sideColorClass} border-b-4 border-white/20`}>
+        <div className="flex items-center gap-3">
+          <div className="bg-black/30 p-2 rounded-lg"><Zap className="w-6 h-6 text-white fill-current" /></div>
+          <span className="font-headline font-black text-xl uppercase italic tracking-tighter text-white">{side} SIDE</span>
+        </div>
+        <div className="font-headline font-black text-xl truncate max-w-[150px] uppercase italic text-white">{nickname || 'CHALLENGER'}</div>
       </div>
 
-      <div className="w-full max-w-lg space-y-6">
-        <header className="text-center space-y-3">
-          <h1 className="text-xl font-headline font-bold text-white/80 leading-tight">
+      <div className="w-full max-w-lg space-y-8">
+        <header className="text-center space-y-4">
+          <h1 className="text-2xl font-headline font-black text-white leading-tight uppercase italic drop-shadow-md">
             {room.topic}
           </h1>
           <div className="flex justify-center gap-2">
-            <Badge variant="outline" className="border-white/20 text-white/60">
-              {room.status === 'battling' ? "격렬한 배틀 중!" : "의견을 입력하세요"}
+            <Badge variant="outline" className="border-white/20 text-white/60 font-headline uppercase italic">
+              {room.status === 'battling' ? "BATTLE IN PROGRESS!" : "WAITING FOR YOUR LOGIC"}
             </Badge>
           </div>
         </header>
 
-        <Card className="game-card border-white/10 shadow-2xl">
-          <CardContent className="pt-6">
-            <form onSubmit={handleSubmit} className="space-y-4">
-              <div className="space-y-2">
-                <label className="text-sm font-headline text-muted-foreground uppercase">나의 공격 논리</label>
+        <Card className="game-card border-white/5 shadow-[0_20px_50px_rgba(0,0,0,0.5)]">
+          <CardContent className="pt-8">
+            <form onSubmit={handleSubmit} className="space-y-6">
+              <div className="space-y-3">
+                <label className="text-sm font-headline text-gray-400 uppercase italic tracking-widest">My Attack Logic</label>
                 <Textarea
                   placeholder={side === 'pro' ? "찬성하는 이유를 강력하게 적어주세요!" : "반대하는 이유를 설득력 있게 적어주세요!"}
                   value={opinion}
                   onChange={(e) => setOpinion(e.target.value)}
-                  className="min-h-[150px] text-lg bg-background/50 border-2 border-white/10 rounded-xl focus:border-primary"
+                  className="min-h-[180px] text-xl bg-black/40 border-2 border-white/10 rounded-lg focus:border-white font-body p-4"
                   required
                 />
               </div>
               <Button 
                 disabled={isSubmitting || !opinion.trim() || room.status === 'battling'} 
-                className={`w-full h-16 text-xl font-headline game-button rounded-xl ${side === 'pro' ? 'bg-primary text-black' : 'bg-accent text-white'}`}
+                className={`w-full h-20 text-3xl font-headline font-black game-button rounded-lg ${side === 'pro' ? 'bg-primary text-white' : 'bg-accent text-white'} uppercase italic`}
               >
-                {isSubmitting ? "전송 중..." : <><Send className="mr-2" /> 공격 의견 제출!</>}
+                {isSubmitting ? "CHARGING..." : <><Send className="mr-3 w-8 h-8" /> FIRE ATTACK!</>}
               </Button>
             </form>
           </CardContent>
         </Card>
 
-        <div className="bg-white/5 p-4 rounded-xl border border-white/5 space-y-2">
-          <div className="flex items-center gap-2 text-primary font-headline text-sm">
-            <Info className="w-4 h-4" />
-            <span>배틀 규칙</span>
+        <div className="bg-black/40 p-5 rounded-lg border border-white/5 space-y-3">
+          <div className="flex items-center gap-2 text-white font-headline text-sm uppercase italic tracking-tighter">
+            <Info className="w-5 h-5 text-gray-400" />
+            <span>Battle Protocol</span>
           </div>
-          <p className="text-xs text-muted-foreground font-body">
-            제출된 의견은 AI가 분석하여 상대 진영에 데미지를 줍니다. 논리가 타당하고 설득력이 높을수록 더 큰 데미지를 줄 수 있습니다!
+          <p className="text-xs text-gray-400 font-body leading-relaxed">
+            제출된 의견은 AI가 분석하여 상대 진영에 데미지를 줍니다. <br/>
+            <span className="text-primary font-bold">논리가 타당하고 설득력이 높을수록</span> 더 큰 치명타를 줄 수 있습니다!
           </p>
         </div>
 
         {room.status === 'battling' && (
-          <div className="fixed inset-0 bg-black/80 backdrop-blur-md z-50 flex flex-col items-center justify-center p-8 text-center space-y-8 animate-in fade-in duration-500">
-            <Swords className="w-20 h-20 text-primary animate-bounce" />
-            <h2 className="text-4xl font-headline font-bold text-white">격렬한 배틀이 진행 중입니다!</h2>
-            <p className="text-xl text-primary font-headline">칠판(호스트 화면)을 확인하세요!</p>
+          <div className="fixed inset-0 bg-black/90 backdrop-blur-xl z-50 flex flex-col items-center justify-center p-8 text-center space-y-8 animate-in fade-in duration-500">
+            <div className="relative">
+              <Swords className="w-32 h-32 text-white animate-bounce" />
+              <div className="absolute inset-0 bg-primary/20 blur-3xl rounded-full"></div>
+            </div>
+            <h2 className="text-5xl font-headline font-black text-white uppercase italic tracking-tighter">Battle Phase!</h2>
+            <p className="text-2xl text-primary font-headline uppercase italic">Watch the Arena Screen!</p>
           </div>
         )}
       </div>
