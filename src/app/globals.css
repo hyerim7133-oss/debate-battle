@@ -1,0 +1,67 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: 70 20% 7%;
+    --foreground: 70 40% 98%;
+    --card: 70 20% 10%;
+    --card-foreground: 70 40% 98%;
+    --popover: 70 20% 10%;
+    --popover-foreground: 70 40% 98%;
+    --primary: 73 100% 69%;
+    --primary-foreground: 70 20% 7%;
+    --secondary: 70 20% 15%;
+    --secondary-foreground: 70 40% 98%;
+    --muted: 70 20% 15%;
+    --muted-foreground: 70 20% 65%;
+    --accent: 30 100% 50%;
+    --accent-foreground: 0 0% 100%;
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 0 0% 98%;
+    --border: 70 20% 20%;
+    --input: 70 20% 20%;
+    --ring: 73 100% 69%;
+    --radius: 1rem;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+  body {
+    @apply bg-background text-foreground font-body overflow-x-hidden;
+  }
+  h1, h2, h3, h4, h5, h6 {
+    @apply font-headline;
+  }
+}
+
+.battle-arena {
+  background: radial-gradient(circle at center, #1e2211 0%, #16190e 100%);
+  position: relative;
+  overflow: hidden;
+}
+
+.stickman-container {
+  transition: all 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.damage-pop {
+  animation: damage-float 1s ease-out forwards;
+}
+
+@keyframes damage-float {
+  0% { transform: translateY(0) scale(1); opacity: 1; }
+  100% { transform: translateY(-50px) scale(1.5); opacity: 0; }
+}
+
+.game-button {
+  @apply transition-transform active:scale-95 hover:brightness-110 shadow-[0_4px_0_0_rgba(0,0,0,0.3)];
+}
+
+.game-card {
+  @apply border-2 border-primary/20 bg-card/80 backdrop-blur-sm shadow-xl;
+}

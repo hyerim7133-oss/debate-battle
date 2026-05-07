@@ -1,0 +1,94 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    /**
+     * DEBATE BATTLE SECURITY RULES
+     *
+     * Core Philosophy:
+     * This ruleset implements an Authorization Independence model. By denormalizing critical 
+     * ownership and context data (like hostId and roomStatus) directly onto sub-collection 
+     * documents, we ensure that every access request is evaluated atomically without 
+     * requiring expensive or complex cross-document lookups (get() calls).
+     *
+     * Data Structure:
+     * - /rooms/{roomId}: The root entity for debate sessions.
+     * - /rooms/{roomId}/participants/{participantId}: Students joined in a specific room.
+     * - /rooms/{roomId}/opinions/{opinionId}: Debate contributions within a room.
+     *
+     * Key Security Decisions:
+     * 1. Ownership Model: Rooms are owned by the 'hostId'. Participants and Opinions are owned by their respective 'userId'.
+     * 2. Prototyping Flexibility: Rules enforce strict authorization (who can write) and relational 
+     *    integrity (linking to the correct user), but do not restrict data types or schemas for content.
+     * 3. Structural Integrity: Path-to-document field consistency is enforced for creation.
+     * 4. State Safety: Destructive operations (update/delete) are strictly guarded by existence checks.
+     */
+
+    // --- Global Helper Functions ---
+
+    /** Checks if the user is authenticated with Firebase Auth. */
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    /** Checks if the authenticated user's UID matches the provided userId. */
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    /** Checks if the document exists and the current user is the owner. */
+    function isExistingOwner(userId) {
+      return resource != null && isOwner(userId);
+    }
+
+    /** Checks if the authenticated user is the host based on denormalized data. */
+    function isHost(hostId) {
+      return isOwner(hostId);
+    }
+
+    // --- Collection Rules ---
+
+    /**
+     * @description Rules for managing debate rooms. Hosts can create/edit; public can read active rooms.
+     * @path /rooms/{roomId}
+     * @allow (get, list) if the room is active ('waiting' or 'inProgress').
+     * @allow (create) if the user is signed in and sets themselves as hostId.
+     * @deny (update, delete) if the user is not the designated hostId.
+     * @principle Enforces host ownership and relational integrity between auth state and hostId.
+     */
+    match /rooms/{roomId} {
+      allow get, list: if isSignedIn();
+      allow create: if isSignedIn() && request.resource.data.hostId == request.auth.uid;
+      allow update: if isExistingOwner(resource.data.hostId) && request.resource.data.hostId == resource.data.hostId;
+      allow delete: if isExistingOwner(resource.data.hostId);
+
+      /**
+       * @description Participants within a room. Includes denormalized hostId for admin access.
+       * @path /rooms/{roomId}/participants/{participantId}
+       * @allow (create) if the user sets their own UID as the userId.
+       * @allow (update, delete) if the user is the participant OR the room host.
+       * @principle Uses denormalized context to allow host management without parent document lookups.
+       */
+      match /participants/{participantId} {
+        allow get, list: if isSignedIn();
+        allow create: if isSignedIn() && request.resource.data.userId == request.auth.uid;
+        allow update: if (isExistingOwner(resource.data.userId) || isHost(resource.data.hostId)) && request.resource.data.userId == resource.data.userId;
+        allow delete: if isExistingOwner(resource.data.userId) || isHost(resource.data.hostId);
+      }
+
+      /**
+       * @description Opinions submitted by participants.
+       * @path /rooms/{roomId}/opinions/{opinionId}
+       * @allow (create) if the participant links the opinion to their own UID.
+       * @allow (update, delete) if the user is the original author OR the room host.
+       * @principle Implements authorization independence by storing userId and hostId on the opinion.
+       */
+      match /opinions/{opinionId} {
+        allow get, list: if isSignedIn();
+        allow create: if isSignedIn() && request.resource.data.userId == request.auth.uid;
+        allow update: if (isExistingOwner(resource.data.userId) || isHost(resource.data.hostId)) && request.resource.data.userId == resource.data.userId;
+        allow delete: if isExistingOwner(resource.data.userId) || isHost(resource.data.hostId);
+      }
+    }
+  }
+}

@@ -1,0 +1,11 @@
+
+{
+  "placeholderImages": [
+    {
+      "id": "debate-bg",
+      "description": "A dark classroom background for debate",
+      "imageUrl": "https://picsum.photos/seed/debate1/1200/800",
+      "imageHint": "dark classroom"
+    }
+  ]
+}

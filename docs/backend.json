@@ -1,0 +1,212 @@
+{
+  "entities": {
+    "Room": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "Room",
+      "type": "object",
+      "description": "Represents a single debate room where a host facilitates a real-time debate battle.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the Room entity."
+        },
+        "topic": {
+          "type": "string",
+          "description": "The main topic for the debate within this room."
+        },
+        "status": {
+          "type": "string",
+          "description": "Current status of the debate room (e.g., 'waiting', 'inProgress', 'completed')."
+        },
+        "hostId": {
+          "type": "string",
+          "description": "Reference to the user who created and hosts the room. (Relationship: User 1:N Room)"
+        },
+        "createdAt": {
+          "type": "string",
+          "description": "Timestamp when the room was created.",
+          "format": "date-time"
+        },
+        "proCount": {
+          "type": "number",
+          "description": "Real-time count of participants who chose the 'pro' (찬성) side."
+        },
+        "conCount": {
+          "type": "number",
+          "description": "Real-time count of participants who chose the 'con' (반대) side."
+        },
+        "currentRound": {
+          "type": "number",
+          "description": "The current round number of the debate battle."
+        },
+        "winnerSide": {
+          "type": "string",
+          "description": "The side that won the debate ('pro' or 'con'). This is determined at the end of the debate."
+        }
+      },
+      "required": [
+        "id",
+        "topic",
+        "status",
+        "hostId",
+        "createdAt",
+        "proCount",
+        "conCount",
+        "currentRound"
+      ]
+    },
+    "Participant": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "Participant",
+      "type": "object",
+      "description": "Represents a student who has joined a specific debate room.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the Participant entity."
+        },
+        "roomId": {
+          "type": "string",
+          "description": "Reference to the debate room the participant belongs to. (Relationship: Room 1:N Participant)"
+        },
+        "nickname": {
+          "type": "string",
+          "description": "The student's chosen nickname for the debate."
+        },
+        "side": {
+          "type": "string",
+          "description": "The side chosen by the participant ('pro' or 'con')."
+        },
+        "joinedAt": {
+          "type": "string",
+          "description": "Timestamp when the participant joined the room.",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "id",
+        "roomId",
+        "nickname",
+        "side",
+        "joinedAt"
+      ]
+    },
+    "Opinion": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "Opinion",
+      "type": "object",
+      "description": "Represents a text opinion submitted by a participant for a debate round.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the Opinion entity."
+        },
+        "participantId": {
+          "type": "string",
+          "description": "Reference to the participant who submitted the opinion. (Relationship: Participant 1:N Opinion)"
+        },
+        "roomId": {
+          "type": "string",
+          "description": "Reference to the debate room this opinion belongs to. (Relationship: Room 1:N Opinion)"
+        },
+        "side": {
+          "type": "string",
+          "description": "The side ('pro' or 'con') of the opinion."
+        },
+        "text": {
+          "type": "string",
+          "description": "The actual text content of the opinion submitted by the participant."
+        },
+        "submittedAt": {
+          "type": "string",
+          "description": "Timestamp when the opinion was submitted.",
+          "format": "date-time"
+        },
+        "damageScore": {
+          "type": "number",
+          "description": "The damage score calculated by AI for this opinion, reflecting its validity and impact. This is set after AI evaluation."
+        },
+        "round": {
+          "type": "number",
+          "description": "The round number for which this opinion was submitted."
+        }
+      },
+      "required": [
+        "id",
+        "participantId",
+        "roomId",
+        "side",
+        "text",
+        "submittedAt",
+        "round"
+      ]
+    }
+  },
+  "auth": {
+    "providers": [
+      "password",
+      "anonymous"
+    ]
+  },
+  "firestore": {
+    "structure": [
+      {
+        "path": "/rooms/{roomId}",
+        "definition": {
+          "entityName": "Room",
+          "schema": {
+            "$ref": "#/backend/entities/Room"
+          },
+          "description": "Represents a single debate room. Includes `hostId` (the Firebase `uid` of the room creator) for host-specific authorization.",
+          "params": [
+            {
+              "name": "roomId",
+              "description": "The unique identifier for the debate room."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/rooms/{roomId}/participants/{participantId}",
+        "definition": {
+          "entityName": "Participant",
+          "schema": {
+            "$ref": "#/backend/entities/Participant"
+          },
+          "description": "Represents a student who has joined a specific debate room. Includes denormalized `hostId` and `roomStatus` from the parent room for authorization, and `userId` (the Firebase `uid` of the participant) for participant's self-authorization and identifying the participant's user.",
+          "params": [
+            {
+              "name": "roomId",
+              "description": "The unique identifier of the parent debate room."
+            },
+            {
+              "name": "participantId",
+              "description": "The unique identifier for the participant within the room."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/rooms/{roomId}/opinions/{opinionId}",
+        "definition": {
+          "entityName": "Opinion",
+          "schema": {
+            "$ref": "#/backend/entities/Opinion"
+          },
+          "description": "Represents a text opinion submitted by a participant for a debate round. Includes denormalized `hostId` and `roomStatus` from the parent room, and `userId` (the Firebase `uid` of the participant who submitted the opinion) for authorization independence.",
+          "params": [
+            {
+              "name": "roomId",
+              "description": "The unique identifier of the parent debate room."
+            },
+            {
+              "name": "opinionId",
+              "description": "The unique identifier for the opinion."
+            }
+          ]
+        }
+      }
+    ],
+    "reasoning": "The recommended Firestore structure is designed to be highly secure, scalable, and debuggable by strictly adhering to the core design principles, especially Authorization Independence via Denormalization and Structural Segregation. \n\n**Authorization Independence:**\n*   **Rooms (`/rooms/{roomId}`):** Each `Room` document intrinsically contains its `hostId`. This directly links the room to its owner (the Firebase `uid` of the host), enabling rules like `allow write: if request.auth.uid == resource.data.hostId;` without any `get()` calls to other documents. This ensures atomic room creation and updates. \n*   **Participants (`/rooms/{roomId}/participants/{participantId}`):** To avoid `get()` calls to the parent `Room` document, each `Participant` document will denormalize critical authorization context from its parent `Room` – specifically, the `hostId` and the `roomStatus`. It will also store the `userId` of the participant (their Firebase `uid`). This allows rules to evaluate host access (`request.auth.uid == resource.data.hostId`), participant self-access (`request.auth.uid == resource.data.userId`), and general read access based on room status (`resource.data.roomStatus == 'waiting' || resource.data.roomStatus == 'inProgress'`) without fetching the parent room. \n*   **Opinions (`/rooms/{roomId}/opinions/{opinionId}`):** Similar to participants, each `Opinion` document will denormalize the `hostId` and `roomStatus` from the parent `Room`, and the `userId` (Firebase `uid`) of the participant who submitted the opinion. This makes rules for opinion submission (`request.auth.uid == request.resource.data.userId`) and read access (`request.auth.uid == resource.data.hostId || resource.data.roomStatus == 'inProgress'`) atomic and independent of parent document fetches.\n\n**Structural Segregation & QAPs (Query as Authorization Predicate):**\n*   **Rooms (`/rooms`):** This collection stores all debate rooms. The `status` field (`waiting`, `inProgress`, `completed`) is explicitly modeled. For secure `list` operations (QAPs), rules will permit authenticated users to `list` and `read` rooms where `resource.data.status` is 'waiting' or 'inProgress'. This allows clients to confidently query `db.collection('rooms').where('status', '==', 'waiting')` knowing that the security rules will enforce this filter and only return authorized documents. No 'draft' or 'private' room states exist in this main collection to avoid mixed security postures. \n*   **Participants (`/rooms/{roomId}/participants`):** All participants within a given room share the same security posture for that room. The denormalized `roomStatus` allows `list` access for all participants (or generally, any authenticated user) within that room context if the room is active. Hosts (identified by denormalized `hostId`) have full `list` and `manage` access. Individual participants can access their own `Participant` document via `userId`.\n*   **Opinions (`/rooms/{roomId}/opinions`):** Similarly, opinions in an active room (`roomStatus`) are generally readable by participants in that room, while the `hostId` grants host-level control, and `userId` grants opinion-owner control. This structure supports QAPs by allowing `list` operations based on `roomStatus` and `roomId` (from the path), ensuring that only relevant and authorized data is returned.\n\nThis design minimizes complexity in security rules, improves debugging by making authorization explicit within each document, and supports efficient real-time queries while adhering to all mandated principles."
+  }
+}
