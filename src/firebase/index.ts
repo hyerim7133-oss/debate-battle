@@ -3,41 +3,41 @@
 import { firebaseConfig } from '@/firebase/config';
 import { initializeApp, getApps, getApp, FirebaseApp } from 'firebase/app';
 import { getAuth } from 'firebase/auth';
-import { getFirestore } from 'firebase/firestore'
+import { getFirestore } from 'firebase/firestore';
 
-// IMPORTANT: DO NOT MODIFY THIS FUNCTION
+/**
+ * Initializes Firebase with the provided configuration.
+ * Validates required options and logs missing variables for debugging.
+ */
 export function initializeFirebase() {
-  if (!getApps().length) {
-    // Important! initializeApp() is called without any arguments because Firebase App Hosting
-    // integrates with the initializeApp() function to provide the environment variables needed to
-    // populate the FirebaseOptions in production. It is critical that we attempt to call initializeApp()
-    // without arguments.
-    let firebaseApp;
-    try {
-      // Attempt to initialize via Firebase App Hosting environment variables
-      firebaseApp = initializeApp();
-    } catch (e) {
-      // Only warn in production because it's normal to use the firebaseConfig to initialize
-      // during development
-      if (process.env.NODE_ENV === "production") {
-        console.warn('Automatic initialization failed. Falling back to firebase config object.', e);
-      }
-      firebaseApp = initializeApp(firebaseConfig);
-    }
+  const missingVars = Object.entries(firebaseConfig)
+    .filter(([_, value]) => !value || value === 'undefined')
+    .map(([key]) => key);
 
-    return getSdks(firebaseApp);
+  if (missingVars.length > 0) {
+    console.warn(`[Firebase] Missing or invalid environment variables: ${missingVars.join(', ')}`);
+    // Return nulls if critical variables are missing
+    if (!firebaseConfig.apiKey || !firebaseConfig.projectId) {
+      return { firebaseApp: null, auth: null, firestore: null };
+    }
   }
 
-  // If already initialized, return the SDKs with the already initialized App
-  return getSdks(getApp());
-}
-
-export function getSdks(firebaseApp: FirebaseApp) {
-  return {
-    firebaseApp,
-    auth: getAuth(firebaseApp),
-    firestore: getFirestore(firebaseApp)
-  };
+  try {
+    const firebaseApp = getApps().length === 0 
+      ? initializeApp(firebaseConfig) 
+      : getApp();
+    
+    console.log("[Firebase] Successfully initialized");
+    
+    return {
+      firebaseApp,
+      auth: getAuth(firebaseApp),
+      firestore: getFirestore(firebaseApp)
+    };
+  } catch (e) {
+    console.error("[Firebase] Initialization failed:", e);
+    return { firebaseApp: null, auth: null, firestore: null };
+  }
 }
 
 export * from './provider';

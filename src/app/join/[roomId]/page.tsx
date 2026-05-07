@@ -3,8 +3,8 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter, useParams } from 'next/navigation';
-import { useFirestore, useMemoFirebase, useDoc, useFirebase } from '@/firebase';
-import { doc, updateDoc, increment, collection, addDoc, serverTimestamp, Firestore } from 'firebase/firestore';
+import { useFirestore, useMemoFirebase, useDoc } from '@/firebase';
+import { doc, updateDoc, increment, collection, addDoc, serverTimestamp } from 'firebase/firestore';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -23,17 +23,7 @@ export default function StudentJoinPage() {
   const [mounted, setMounted] = useState(false);
 
   const router = useRouter();
-  
-  // Firebase 서비스 안전하게 가져오기
-  let db: Firestore | null = null;
-  let firebaseError: string | null = null;
-  
-  try {
-    const firebase = useFirebase();
-    db = firebase.firestore;
-  } catch (e: any) {
-    firebaseError = e.message;
-  }
+  const db = useFirestore();
 
   // 방 정보 조회를 위한 레퍼런스 메모이제이션
   const roomRef = useMemoFirebase(() => (db && roomId ? doc(db, 'rooms', roomId) : null), [db, roomId]);
@@ -94,14 +84,14 @@ export default function StudentJoinPage() {
   }
 
   // 시스템 에러 (Firebase 초기화 실패 등)
-  if (firebaseError || roomError) {
+  if (roomError) {
     return (
       <div className="min-h-screen flex items-center justify-center p-4 bg-background">
         <Alert variant="destructive" className="max-w-md bg-destructive/10 border-destructive">
           <AlertCircle className="h-5 w-5" />
           <AlertTitle>SYSTEM ERROR</AlertTitle>
           <AlertDescription>
-            {roomError?.message || firebaseError || "데이터를 불러오는 중 문제가 발생했습니다."}
+            {roomError?.message || "데이터를 불러오는 중 문제가 발생했습니다."}
           </AlertDescription>
           <Button variant="outline" onClick={() => window.location.reload()} className="mt-4 border-destructive text-destructive hover:bg-destructive/10 w-full">
             RETRY

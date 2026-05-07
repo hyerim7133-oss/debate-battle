@@ -1,8 +1,12 @@
+/**
+ * Firebase configuration object using NEXT_PUBLIC_ environment variables.
+ * These are accessible on both client and server (if needed).
+ */
 export const firebaseConfig = {
-  "projectId": "studio-6244176265-3305f",
-  "appId": "1:278482583213:web:d44fbde41b2ab5638b1024",
-  "apiKey": "AIzaSyA2UIP2z7i6gwKqJrHBI7DUbqhDz4TXtDM",
-  "authDomain": "studio-6244176265-3305f.firebaseapp.com",
-  "measurementId": "",
-  "messagingSenderId": "278482583213"
+  apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
+  authDomain: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN,
+  projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID,
+  storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET,
+  messagingSenderId: process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID,
+  appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID,
 };

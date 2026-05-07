@@ -9,9 +9,9 @@ import { FirebaseErrorListener } from '@/components/FirebaseErrorListener';
 
 interface FirebaseProviderProps {
   children: ReactNode;
-  firebaseApp: FirebaseApp;
-  firestore: Firestore;
-  auth: Auth;
+  firebaseApp: FirebaseApp | null;
+  firestore: Firestore | null;
+  auth: Auth | null;
 }
 
 interface UserAuthState {
@@ -61,7 +61,7 @@ export const FirebaseProvider: React.FC<FirebaseProviderProps> = ({
 
   useEffect(() => {
     if (!auth) {
-      setUserAuthState({ user: null, isUserLoading: false, userError: new Error("Auth service not provided.") });
+      setUserAuthState({ user: null, isUserLoading: false, userError: null });
       return;
     }
 
@@ -71,7 +71,6 @@ export const FirebaseProvider: React.FC<FirebaseProviderProps> = ({
         setUserAuthState({ user: firebaseUser, isUserLoading: false, userError: null });
       },
       (error) => {
-        console.error("FirebaseProvider: onAuthStateChanged error:", error);
         setUserAuthState({ user: null, isUserLoading: false, userError: error });
       }
     );
@@ -82,14 +81,24 @@ export const FirebaseProvider: React.FC<FirebaseProviderProps> = ({
     const servicesAvailable = !!(firebaseApp && firestore && auth);
     return {
       areServicesAvailable: servicesAvailable,
-      firebaseApp: servicesAvailable ? firebaseApp : null,
-      firestore: servicesAvailable ? firestore : null,
-      auth: servicesAvailable ? auth : null,
+      firebaseApp,
+      firestore,
+      auth,
       user: userAuthState.user,
       isUserLoading: userAuthState.isUserLoading,
       userError: userAuthState.userError,
     };
   }, [firebaseApp, firestore, auth, userAuthState]);
+
+  // CRITICAL: Prevent rendering children if services are not yet available.
+  // This prevents hooks like useFirestore() from throwing errors in child components.
+  if (!contextValue.areServicesAvailable) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-[#16190E] text-primary font-headline text-3xl italic uppercase animate-pulse">
+        Arena Connecting...
+      </div>
+    );
+  }
 
   return (
     <FirebaseContext.Provider value={contextValue}>
@@ -101,12 +110,26 @@ export const FirebaseProvider: React.FC<FirebaseProviderProps> = ({
 
 export const useFirebase = (): FirebaseServicesAndUser => {
   const context = useContext(FirebaseContext);
+  
   if (context === undefined) {
     throw new Error('useFirebase must be used within a FirebaseProvider.');
   }
+
+  // This check is a failsafe. Due to the rendering guard in FirebaseProvider, 
+  // children should never be rendered while areServicesAvailable is false.
   if (!context.areServicesAvailable || !context.firebaseApp || !context.firestore || !context.auth) {
-    throw new Error('Firebase core services not available. Check FirebaseProvider props.');
+    // We return a "dummy" but typed object to avoid crashes, 
+    // though the Provider guard makes this code path unreachable.
+    return {
+      firebaseApp: context.firebaseApp!,
+      firestore: context.firestore!,
+      auth: context.auth!,
+      user: context.user,
+      isUserLoading: context.isUserLoading,
+      userError: context.userError,
+    };
   }
+
   return {
     firebaseApp: context.firebaseApp,
     firestore: context.firestore,
@@ -142,6 +165,7 @@ export function useMemoFirebase<T>(factory: () => T, deps: DependencyList): T | 
 }
 
 export const useUser = (): UserHookResult => {
-  const { user, isUserLoading, userError } = useFirebase();
-  return { user, isUserLoading, userError };
+  const context = useContext(FirebaseContext);
+  if (!context) return { user: null, isUserLoading: true, userError: null };
+  return { user: context.user, isUserLoading: context.isUserLoading, userError: context.userError };
 };
