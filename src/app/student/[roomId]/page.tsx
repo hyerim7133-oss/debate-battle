@@ -18,7 +18,7 @@ export default function StudentBattlePage() {
   const roomId = params?.roomId as string;
   
   const router = useRouter();
-  const { user } = useUser();
+  const { user, isUserLoading } = useUser();
   const { toast } = useToast();
 
   const [opinion, setOpinion] = useState('');
@@ -44,11 +44,12 @@ export default function StudentBattlePage() {
   useEffect(() => {
     setMounted(true);
     if (!roomId) return;
-    if (typeof window === 'undefined') return;
 
+    // 로컬 스토리지에서 정보 확인
     const localNick = localStorage.getItem(`debate_${roomId}_nickname`);
     const localSide = localStorage.getItem(`debate_${roomId}_side`) as 'pro' | 'con';
     
+    // 정보가 없으면 참여 페이지로 강제 이동
     if (!localNick || !localSide) {
       router.push(`/join/${roomId}`);
       return;
@@ -60,21 +61,23 @@ export default function StudentBattlePage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!opinion.trim() || !side || isSubmitting || !db || !user || !roomId) return;
+    if (!opinion.trim() || !side || isSubmitting || !db || !user || !roomId || !room) return;
 
     setIsSubmitting(true);
     try {
+      // 의견(Opinion) 저장
       await addDoc(collection(db, 'rooms', roomId, 'opinions'), {
         nickname,
         userId: user.uid,
         side,
         text: opinion.trim(),
-        used: false,
+        used: false, // 호스트가 배틀에 사용하기 전까지 false
         submittedAt: serverTimestamp(),
-        round: room?.currentRound || 1,
+        round: room.currentRound || 1,
         roomId: roomId,
-        hostId: room?.hostId || ''
+        hostId: room.hostId
       });
+      
       setOpinion('');
       toast({
         title: "ATTACK SENT!",
@@ -94,10 +97,12 @@ export default function StudentBattlePage() {
 
   if (!mounted) return null;
 
-  if (isRoomLoading || !db) {
+  if (isRoomLoading || isUserLoading || !db) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
-        <div className="p-12 text-center text-primary font-headline animate-pulse text-3xl italic">LOADING ARENA...</div>
+        <div className="p-12 text-center text-primary font-headline animate-pulse text-3xl italic uppercase">
+          Entering Arena...
+        </div>
       </div>
     );
   }
@@ -123,7 +128,7 @@ export default function StudentBattlePage() {
           <AlertCircle className="w-20 h-20 text-destructive mx-auto animate-bounce" />
           <h2 className="text-4xl font-headline font-black text-white uppercase italic tracking-tighter">Room Expired</h2>
           <Button variant="outline" onClick={() => router.push('/')} className="mt-4 border-primary text-primary hover:bg-primary/10 h-14 px-8 font-headline">
-            메인으로 돌아가기
+            GO HOME
           </Button>
         </div>
       </div>
@@ -189,6 +194,7 @@ export default function StudentBattlePage() {
           </p>
         </div>
 
+        {/* 배틀 중 레이어 (학생 화면에서는 입력 방지용) */}
         {room.status === 'battling' && (
           <div className="fixed inset-0 bg-black/90 backdrop-blur-xl z-50 flex flex-col items-center justify-center p-8 text-center space-y-8 animate-in fade-in duration-500">
             <div className="relative">

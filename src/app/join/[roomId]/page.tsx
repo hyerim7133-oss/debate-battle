@@ -4,7 +4,7 @@
 import { useState, useEffect } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import { useFirestore, useMemoFirebase, useDoc, useFirebase } from '@/firebase';
-import { doc, updateDoc, increment, Firestore } from 'firebase/firestore';
+import { doc, updateDoc, increment, collection, addDoc, serverTimestamp, Firestore } from 'firebase/firestore';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -35,6 +35,7 @@ export default function StudentJoinPage() {
     firebaseError = e.message;
   }
 
+  // 방 정보 조회를 위한 레퍼런스 메모이제이션
   const roomRef = useMemoFirebase(() => (db && roomId ? doc(db, 'rooms', roomId) : null), [db, roomId]);
   const { data: room, isLoading: isRoomLoading, error: roomError } = useDoc(roomRef);
 
@@ -43,38 +44,56 @@ export default function StudentJoinPage() {
   }, []);
 
   const handleJoin = async () => {
-    if (!nickname.trim() || !side || !db || !roomId) return;
+    if (!nickname.trim() || !side || !db || !roomId || !room) return;
     setLoading(true);
     setJoinError(null);
 
     try {
+      // 1. 방 참여 인원 카운트 증가
       await updateDoc(doc(db, 'rooms', roomId), {
         [side === 'pro' ? 'proCount' : 'conCount']: increment(1)
       });
       
+      // 2. 참가자(participant) 정보 저장
+      await addDoc(collection(db, 'rooms', roomId, 'participants'), {
+        nickname: nickname.trim(),
+        side: side,
+        userId: (await import('firebase/auth')).getAuth().currentUser?.uid || 'anonymous',
+        joinedAt: serverTimestamp(),
+        roomId: roomId,
+        hostId: room.hostId
+      });
+
+      // 3. 로컬 스토리지에 설정 정보 저장 (배틀 페이지에서 사용)
       if (typeof window !== 'undefined') {
         localStorage.setItem(`debate_${roomId}_nickname`, nickname.trim());
         localStorage.setItem(`debate_${roomId}_side`, side);
       }
       
+      // 4. 배틀 페이지(의견 제출)로 이동
       router.push(`/student/${roomId}`);
     } catch (err: any) {
       console.error("Join error:", err);
-      setJoinError(`참여 실패: ${err.message || "알 수 없는 오류가 발생했습니다."}`);
+      setJoinError(`입장 실패: ${err.message || "알 수 없는 오류가 발생했습니다."}`);
       setLoading(false);
     }
   };
 
+  // 하이드레이션 오류 방지
   if (!mounted) return null;
 
+  // 로딩 상태
   if (isRoomLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
-        <div className="text-primary font-headline text-2xl animate-pulse italic tracking-widest uppercase">Initializing Battle...</div>
+        <div className="text-primary font-headline text-2xl animate-pulse italic tracking-widest uppercase">
+          CHECKING ARENA...
+        </div>
       </div>
     );
   }
 
+  // 시스템 에러 (Firebase 초기화 실패 등)
   if (firebaseError || roomError) {
     return (
       <div className="min-h-screen flex items-center justify-center p-4 bg-background">
@@ -84,20 +103,24 @@ export default function StudentJoinPage() {
           <AlertDescription>
             {roomError?.message || firebaseError || "데이터를 불러오는 중 문제가 발생했습니다."}
           </AlertDescription>
+          <Button variant="outline" onClick={() => window.location.reload()} className="mt-4 border-destructive text-destructive hover:bg-destructive/10 w-full">
+            RETRY
+          </Button>
         </Alert>
       </div>
     );
   }
 
+  // 방을 찾을 수 없는 경우
   if (!roomId || !room) {
     return (
       <div className="min-h-screen flex items-center justify-center p-4 bg-background">
         <div className="text-center space-y-6">
           <AlertCircle className="w-20 h-20 text-destructive mx-auto animate-bounce" />
           <h2 className="text-4xl font-headline font-black text-white uppercase italic tracking-tighter">Arena Not Found</h2>
-          <p className="text-gray-400 max-w-sm mx-auto">방이 존재하지 않거나 종료되었습니다. URL을 다시 확인해 주세요.</p>
+          <p className="text-gray-400 max-w-sm mx-auto">방이 존재하지 않거나 이미 종료되었습니다. 주소를 다시 확인해 주세요.</p>
           <Button variant="outline" onClick={() => router.push('/')} className="mt-4 border-primary text-primary hover:bg-primary/10 h-14 px-8 font-headline">
-            메인으로 돌아가기
+            HOME
           </Button>
         </div>
       </div>
@@ -109,7 +132,9 @@ export default function StudentJoinPage() {
       <div className="w-full max-w-lg mt-12 space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
         <div className="text-center space-y-3">
           <h1 className="text-xl font-headline font-bold text-gray-500 uppercase tracking-[0.3em] italic">Join the Arena</h1>
-          <p className="text-4xl md:text-5xl font-headline font-black text-white leading-tight uppercase italic drop-shadow-[0_0_20px_rgba(255,255,255,0.2)]">"{room.topic}"</p>
+          <p className="text-4xl md:text-5xl font-headline font-black text-white leading-tight uppercase italic drop-shadow-[0_0_20px_rgba(255,255,255,0.2)]">
+            "{room.topic}"
+          </p>
         </div>
 
         <Card className="game-card border-white/5 shadow-2xl">
